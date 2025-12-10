@@ -7,7 +7,7 @@ import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getDatabase, Database } from "firebase/database";
 
 let app: FirebaseApp | undefined;
-let db: Database | undefined;
+let dbInstance: Database | undefined;
 
 function initializeFirebase(): Database {
   // 只在客戶端初始化
@@ -16,8 +16,8 @@ function initializeFirebase(): Database {
   }
 
   // 如果已經初始化，返回現有的實例
-  if (db) {
-    return db;
+  if (dbInstance) {
+    return dbInstance;
   }
 
   const firebaseConfig = {
@@ -38,8 +38,8 @@ function initializeFirebase(): Database {
   try {
     // Initialize Firebase (avoid re-initialization in Next.js)
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-    db = getDatabase(app);
-    return db;
+    dbInstance = getDatabase(app);
+    return dbInstance;
   } catch (error: any) {
     // 捕獲 storage 相關錯誤（Firebase 可能會嘗試訪問 storage）
     if (error.message?.includes('storage') || error.message?.includes('Access to storage')) {
@@ -50,21 +50,21 @@ function initializeFirebase(): Database {
       // 嘗試繼續初始化（某些 Firebase 功能可能受限，但不影響 Realtime Database）
       try {
         app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-        db = getDatabase(app);
-        return db;
+        dbInstance = getDatabase(app);
+        return dbInstance;
       } catch (retryError) {
         console.error('Firebase initialization failed:', retryError);
         // 如果重試也失敗，仍然嘗試初始化（某些環境下可能仍能工作）
         app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-        db = getDatabase(app);
-        return db;
+        dbInstance = getDatabase(app);
+        return dbInstance;
       }
     } else {
       console.error('Firebase initialization error:', error);
       // 即使有錯誤，也嘗試初始化（應用需要 Firebase 才能運行）
       app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-      db = getDatabase(app);
-      return db;
+      dbInstance = getDatabase(app);
+      return dbInstance;
     }
   }
 }
@@ -73,7 +73,4 @@ function initializeFirebase(): Database {
 export function getDb(): Database {
   return initializeFirebase();
 }
-
-// 為了向後兼容，也導出 db（但只在客戶端可用）
-export const db = typeof window !== 'undefined' ? initializeFirebase() : (null as unknown as Database);
 
