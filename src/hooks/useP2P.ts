@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { db } from "@/lib/firebase";
+import { getDb } from "@/lib/firebase";
 import { ref, set, onValue, off, remove, onDisconnect } from "firebase/database";
 import SimplePeer, { Instance as PeerInstance } from "simple-peer";
 import { generateShareCode } from "@/lib/utils";
@@ -40,12 +40,14 @@ export function useP2P() {
       peerRef.current.destroy();
       peerRef.current = null;
     }
-    if (myCodeRef.current) {
+    if (myCodeRef.current && typeof window !== 'undefined') {
+      const db = getDb();
       const myRoomRef = ref(db, `rooms/${myCodeRef.current}`);
       off(myRoomRef);
       remove(myRoomRef);
     }
-    if (targetCodeRef.current) {
+    if (targetCodeRef.current && typeof window !== 'undefined') {
+      const db = getDb();
       const targetRoomRef = ref(db, `rooms/${targetCodeRef.current}`);
       off(targetRoomRef);
     }
@@ -61,8 +63,10 @@ export function useP2P() {
   }, [cleanup]);
 
   const startListening = (code: string) => {
+    if (typeof window === 'undefined') return;
     setStatus("waiting");
     setError(null);
+    const db = getDb();
     const roomRef = ref(db, `rooms/${code}`);
     set(roomRef, { created: Date.now() });
     onDisconnect(roomRef).remove();
@@ -87,7 +91,9 @@ export function useP2P() {
   };
 
   const connectToPeer = async (targetCode: string) => {
+    if (typeof window === 'undefined') return;
     if (myCodeRef.current) {
+      const db = getDb();
       const myRoomRef = ref(db, `rooms/${myCodeRef.current}`);
       off(myRoomRef);
       remove(myRoomRef);
@@ -120,6 +126,8 @@ export function useP2P() {
       peerRef.current = p;
 
       p.on('signal', (data) => {
+        if (typeof window === 'undefined') return;
+        const db = getDb();
         const targetPath = initiator ? 'clientSignal' : 'hostSignal';
         set(ref(db, `rooms/${roomId}/${targetPath}`), JSON.stringify(data));
       });
@@ -170,6 +178,7 @@ export function useP2P() {
       });
 
       if (initiator) {
+        const db = getDb();
         const hostSignalRef = ref(db, `rooms/${roomId}/hostSignal`);
         onValue(hostSignalRef, (snapshot) => {
           const data = snapshot.val();
