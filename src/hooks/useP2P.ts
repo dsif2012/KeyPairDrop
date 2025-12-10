@@ -127,7 +127,12 @@ export function useP2P() {
 
       p.on('error', (err) => {
         console.error('Peer error:', err);
-        setError("連線錯誤: " + err.message);
+        const error = err as any;
+        // Ignore "User-Initiated Abort" as it often means the peer closed the connection
+        if (error.code === 'ERR_DATA_CHANNEL' || error.message?.includes('User-Initiated Abort') || error.message?.includes('Close called')) {
+          return;
+        }
+        setError("連線錯誤: " + (error.message || 'Unknown error'));
         setStatus("error");
       });
 
