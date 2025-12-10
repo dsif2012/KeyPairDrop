@@ -114,11 +114,7 @@ export function useP2P() {
           ],
           // 增加 ICE 候選者收集時間
           iceCandidatePoolSize: 10
-        },
-        // 增加連接超時時間
-        reconnectTimer: 5000,
-        // 啟用更好的錯誤處理
-        allowHalfOpen: false
+        }
       });
 
       peerRef.current = p;

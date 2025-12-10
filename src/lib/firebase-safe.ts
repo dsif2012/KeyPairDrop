@@ -16,8 +16,8 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-let app: FirebaseApp | null = null;
-let db: Database | null = null;
+let app: FirebaseApp;
+let db: Database;
 
 try {
   // Initialize Firebase (avoid re-initialization in Next.js)
@@ -36,10 +36,21 @@ try {
       db = getDatabase(app);
     } catch (retryError) {
       console.error('Firebase initialization failed:', retryError);
+      // 如果重試也失敗，仍然嘗試初始化（某些環境下可能仍能工作）
+      app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+      db = getDatabase(app);
     }
   } else {
     console.error('Firebase initialization error:', error);
+    // 即使有錯誤，也嘗試初始化（應用需要 Firebase 才能運行）
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+    db = getDatabase(app);
   }
+}
+
+// 確保 db 永遠不是 null（應用無法在沒有 Firebase 的情況下運行）
+if (!db) {
+  throw new Error('Firebase Realtime Database initialization failed. Please check your environment variables.');
 }
 
 export { db };
