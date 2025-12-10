@@ -12,7 +12,9 @@
     <a href="#-中文">中文</a>
   </p>
 
-  [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fyour-username%2Fkeypairdrop)
+  [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdsif2012%2FKeyPairDrop)
+  <br />
+  <a href="https://keypairdrop.vercel.app/"><strong>Live Demo »</strong></a>
 </div>
 
 <br>
@@ -50,8 +52,8 @@ Follow these steps to run KeyPairDrop locally.
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/keypairdrop.git
-cd keypairdrop
+git clone https://github.com/dsif2012/KeyPairDrop.git
+cd KeyPairDrop
 ```
 
 ### 2. Install dependencies
@@ -74,6 +76,7 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+NEXT_PUBLIC_GA_MEASUREMENT_ID=your_ga_measurement_id
 ```
 
 > **How to get Firebase Config?**
@@ -122,8 +125,8 @@ KeyPairDrop 是一個現代化的檔案分享工具，專注於隱私與速度�
 ### 1. 複製專案 (Clone)
 
 ```bash
-git clone https://github.com/your-username/keypairdrop.git
-cd keypairdrop
+git clone https://github.com/dsif2012/KeyPairDrop.git
+cd KeyPairDrop
 ```
 
 ### 2. 安裝依賴 (Install)
@@ -146,6 +149,7 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+NEXT_PUBLIC_GA_MEASUREMENT_ID=your_ga_measurement_id
 ```
 
 > **如何取得 Firebase Config?**
