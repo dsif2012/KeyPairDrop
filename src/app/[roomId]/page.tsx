@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useP2P } from "@/hooks/useP2P";
 import { ConnectionForm } from "@/components/ConnectionForm";
@@ -14,20 +13,20 @@ export default function JoinPage() {
   
   const { 
     status, 
-    error, 
-    connect, 
+    error,
+    myCode, 
+    connectToPeer: connect, 
     disconnect, 
     isInitiator, 
-    sendFile, 
+    sendFiles: sendFile, 
     incomingFiles, 
     transferProgress 
   } = useP2P();
 
-  const handleConnect = (rid: string, pass: string) => {
-    connect(rid, pass);
+  const handleConnect = (rid: string) => {
+    connect(rid);
   };
 
-  // If user manually disconnects, maybe redirect to home?
   const handleDisconnect = () => {
     disconnect();
     router.push('/');
@@ -47,14 +46,14 @@ export default function JoinPage() {
       );
     }
 
-    if (status === "idle" || status === "error" || status === "joining_room") {
+    if (status === "idle" || status === "error" || status === "waiting") {
       return (
         <div className="flex flex-col items-center w-full">
           <ConnectionForm 
-            mode="join"
-            initialRoomId={roomId}
+            myCode={myCode}
+            initialTargetCode={roomId}
             onConnect={handleConnect} 
-            isLoading={status === "checking_room" || status === "joining_room"} 
+            isLoading={false} 
           />
           {error && (
             <div className="mt-4 p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2 max-w-md w-full border border-red-100 animate-in fade-in slide-in-from-top-2">
@@ -95,4 +94,3 @@ export default function JoinPage() {
     </div>
   );
 }
-

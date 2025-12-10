@@ -1,20 +1,14 @@
 // src/components/FileTransfer.tsx
 import React, { useRef, useState } from 'react';
 import { Upload, File as FileIcon, Download, Loader2, PlayCircle, Image as ImageIcon, X, Folder, Layers, Package, Archive } from 'lucide-react';
-import { ReceivedFile } from '@/hooks/useP2P';
 import { cn } from '@/lib/utils';
 import JSZip from 'jszip';
+import { ReceivedFile, TransferProgress } from '@/types/p2p';
 
 interface FileTransferProps {
   onSendFile: (files: File[]) => void;
   incomingFiles: ReceivedFile[];
-  transferProgress: {
-    fileName: string;
-    percentage: number;
-    transferred: number;
-    total: number;
-    queueSize: number;
-  } | null;
+  transferProgress: TransferProgress | null;
   disconnect: () => void;
   isInitiator: boolean;
   roomId: string;
@@ -25,7 +19,6 @@ export function FileTransfer({
   incomingFiles,
   transferProgress,
   disconnect,
-  isInitiator,
   roomId
 }: FileTransferProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -237,7 +230,7 @@ export function FileTransfer({
               Waiting for files...
             </div>
           ) : (
-            incomingFiles.map((file) => (
+            [...incomingFiles].reverse().map((file) => (
               <div key={file.id} className="group bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-cyan-500/30 transition-all shadow-lg hover:shadow-cyan-500/5">
                 
                 {/* Media Preview Trigger */}
@@ -247,6 +240,7 @@ export function FileTransfer({
                     className="aspect-video bg-zinc-950 relative cursor-pointer overflow-hidden group/preview"
                   >
                     {isImage(file.type) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={file.url} alt={file.name} className="w-full h-full object-cover opacity-80 group-hover/preview:opacity-100 transition-opacity" />
                     ) : (
                       <video src={file.url} className="w-full h-full object-cover opacity-80" />

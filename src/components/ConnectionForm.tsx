@@ -1,5 +1,5 @@
 // src/components/ConnectionForm.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowRight, Copy, Check, KeyRound, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
@@ -8,15 +8,23 @@ interface ConnectionFormProps {
   myCode: string;
   onConnect: (targetCode: string) => void;
   isLoading: boolean;
+  initialTargetCode?: string;
 }
 
 export function ConnectionForm({ 
   myCode, 
   onConnect, 
-  isLoading 
+  isLoading,
+  initialTargetCode = ''
 }: ConnectionFormProps) {
-  const [targetCode, setTargetCode] = useState('');
+  const [targetCode, setTargetCode] = useState(initialTargetCode);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (initialTargetCode) {
+      setTargetCode(initialTargetCode);
+    }
+  }, [initialTargetCode]);
 
   const handleCopy = async () => {
     try {

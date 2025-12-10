@@ -14,15 +14,13 @@ export default function Home() {
     connectToPeer, 
     sendFiles, 
     incomingFiles, 
-    transferProgress 
+    transferProgress,
+    disconnect,
+    isInitiator
   } = useP2P();
 
   const handleConnect = (targetCode: string) => {
     connectToPeer(targetCode);
-  };
-
-  const handleDisconnect = () => {
-    window.location.reload();
   };
 
   const renderContent = () => {
@@ -33,8 +31,8 @@ export default function Home() {
             onSendFile={sendFiles} 
             incomingFiles={incomingFiles}
             transferProgress={transferProgress}
-            disconnect={handleDisconnect}
-            isInitiator={false} 
+            disconnect={disconnect}
+            isInitiator={isInitiator} 
             roomId={myCode} 
           />
         </div>
@@ -78,7 +76,7 @@ export default function Home() {
           <p className="text-zinc-500 text-sm font-mono uppercase tracking-widest">Searching for peer...</p>
           
           <button 
-            onClick={handleDisconnect}
+            onClick={disconnect}
             className="mt-10 px-8 py-2.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold tracking-widest uppercase transition-colors border border-zinc-700 hover:border-zinc-600"
           >
             Cancel
