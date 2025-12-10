@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRight, Copy, Check, KeyRound, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { logger } from '@/lib/logger';
 
 interface ConnectionFormProps {
   myCode: string;
@@ -32,7 +33,7 @@ export function ConnectionForm({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy', err);
+      logger.error('Failed to copy', err);
     }
   };
 

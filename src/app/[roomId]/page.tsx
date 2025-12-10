@@ -86,7 +86,9 @@ export default function JoinPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex flex-col items-center justify-center p-4">
-      {renderContent()}
+      <main className="w-full flex flex-col items-center">
+        {renderContent()}
+      </main>
       
       <footer className="mt-12 text-center text-gray-400 text-sm">
         <p>Quick Share - Secure P2P File Sharing</p>

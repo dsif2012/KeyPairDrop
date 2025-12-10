@@ -6,6 +6,7 @@ import { ref, set, onValue, off, remove, onDisconnect } from "firebase/database"
 import SimplePeer, { Instance as PeerInstance } from "simple-peer";
 import { generateShareCode } from "@/lib/utils";
 import { ConnectionStatus, ReceivedFile, TransferProgress, FileMeta } from "@/types/p2p";
+import { logger } from "@/lib/logger";
 
 const CHUNK_SIZE = 16 * 1024; // 16KB
 const BACKPRESSURE_THRESHOLD = CHUNK_SIZE * 5;
@@ -79,7 +80,7 @@ export function useP2P() {
              }
           }, 100);
         } catch (e) {
-          console.error("Signal parse error", e);
+          logger.error("Signal parse error", e);
         }
       }
     });
@@ -106,9 +107,18 @@ export function useP2P() {
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' }
-          ]
-        }
+            { urls: 'stun:global.stun.twilio.com:3478' },
+            // 備用 STUN 伺服器
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
+          ],
+          // 增加 ICE 候選者收集時間
+          iceCandidatePoolSize: 10
+        },
+        // 增加連接超時時間
+        reconnectTimer: 5000,
+        // 啟用更好的錯誤處理
+        allowHalfOpen: false
       });
 
       peerRef.current = p;
@@ -119,21 +129,41 @@ export function useP2P() {
       });
 
       p.on('connect', () => {
-        console.log('WebRTC Connected');
+        logger.log('WebRTC Connected');
         setStatus("connected");
       });
 
       p.on('data', handleData);
 
       p.on('error', (err) => {
-        console.error('Peer error:', err);
+        logger.error('Peer error:', err);
         const error = err as any;
         // Ignore "User-Initiated Abort" as it often means the peer closed the connection
         if (error.code === 'ERR_DATA_CHANNEL' || error.message?.includes('User-Initiated Abort') || error.message?.includes('Close called')) {
           return;
         }
-        setError("連線錯誤: " + (error.message || 'Unknown error'));
+        
+        // 處理連接失敗的特定錯誤
+        let errorMessage = "連線錯誤";
+        if (error.message?.includes('Connection failed')) {
+          errorMessage = "無法建立連線，請檢查網路連線或防火牆設定";
+        } else if (error.code === 'ERR_ICE_CONNECTION_FAILURE') {
+          errorMessage = "NAT/防火牆阻擋連線，請嘗試使用不同的網路";
+        } else if (error.message) {
+          errorMessage = "連線錯誤: " + error.message;
+        }
+        
+        setError(errorMessage);
         setStatus("error");
+      });
+      
+      // 監聽 ICE 連接狀態變化
+      p.on('iceStateChange', (state: string) => {
+        logger.log('ICE state:', state);
+        if (state === 'failed' || state === 'disconnected') {
+          setError("網路連線中斷，請重試");
+          setStatus("error");
+        }
       });
 
       p.on('close', () => {
@@ -152,7 +182,7 @@ export function useP2P() {
               const signal = JSON.parse(data);
               p.signal(signal);
             } catch (e) {
-              console.error("Signal parse error", e);
+              logger.error("Signal parse error", e);
             }
           }
         });
@@ -164,59 +194,59 @@ export function useP2P() {
   };
 
   const handleFileStart = (data: string) => {
-    try {
+      try {
       const meta = JSON.parse(data) as FileMeta;
-      receivingFileRef.current = {
-        meta,
-        buffer: [],
-        receivedSize: 0
-      };
-      setTransferProgress({
-        fileName: meta.name,
-        transferred: 0,
-        total: meta.size,
-        percentage: 0,
+        receivingFileRef.current = {
+          meta,
+          buffer: [],
+          receivedSize: 0
+        };
+        setTransferProgress({
+          fileName: meta.name,
+          transferred: 0,
+          total: meta.size,
+          percentage: 0,
         queueSize: 0 // Receiver doesn't know queue size
-      });
-    } catch (e) {
-      console.error("Meta parse error", e);
-    }
+        });
+      } catch (e) {
+        logger.error("Meta parse error", e);
+      }
   };
 
   const handleFileChunk = (data: Uint8Array) => {
     if (!receivingFileRef.current) return;
 
-    const current = receivingFileRef.current;
-    const chunk = new Uint8Array(data);
-    current.buffer.push(chunk);
-    current.receivedSize += chunk.byteLength;
+      const current = receivingFileRef.current;
+      const chunk = new Uint8Array(data);
+      current.buffer.push(chunk);
+      current.receivedSize += chunk.byteLength;
 
-    setTransferProgress({
-      fileName: current.meta.name,
-      transferred: current.receivedSize,
-      total: current.meta.size,
-      percentage: Math.min(100, Math.round((current.receivedSize / current.meta.size) * 100)),
-      queueSize: 0
-    });
+      setTransferProgress({
+        fileName: current.meta.name,
+        transferred: current.receivedSize,
+        total: current.meta.size,
+        percentage: Math.min(100, Math.round((current.receivedSize / current.meta.size) * 100)),
+        queueSize: 0
+      });
 
-    if (current.receivedSize >= current.meta.size) {
+      if (current.receivedSize >= current.meta.size) {
       const blob = new Blob(current.buffer as unknown as BlobPart[], { type: current.meta.mime });
-      const url = URL.createObjectURL(blob);
-      
-      const newFile: ReceivedFile = {
-        id: current.meta.id,
-        name: current.meta.name,
-        path: current.meta.path,
-        size: current.meta.size,
-        type: current.meta.mime,
-        blob,
-        url
-      };
-      
-      setIncomingFiles(prev => [...prev, newFile]);
-      setTransferProgress(null);
-      receivingFileRef.current = null;
-    }
+        const url = URL.createObjectURL(blob);
+        
+        const newFile: ReceivedFile = {
+          id: current.meta.id,
+          name: current.meta.name,
+          path: current.meta.path,
+          size: current.meta.size,
+          type: current.meta.mime,
+          blob,
+          url
+        };
+        
+        setIncomingFiles(prev => [...prev, newFile]);
+        setTransferProgress(null);
+        receivingFileRef.current = null;
+      }
   };
 
   const handleData = (data: any) => {
@@ -298,7 +328,7 @@ export function useP2P() {
     try {
       await sendSingleFile(file);
     } catch (e) {
-      console.error("Failed to send file", file.name, e);
+      logger.error("Failed to send file", file.name, e);
     } finally {
       isSendingRef.current = false;
       // Continue to next file

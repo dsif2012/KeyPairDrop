@@ -4,6 +4,7 @@ import { Upload, File as FileIcon, Download, Loader2, PlayCircle, Image as Image
 import { cn } from '@/lib/utils';
 import JSZip from 'jszip';
 import { ReceivedFile, TransferProgress } from '@/types/p2p';
+import { logger } from '@/lib/logger';
 
 interface FileTransferProps {
   onSendFile: (files: File[]) => void;
@@ -74,7 +75,7 @@ export function FileTransfer({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error("Zip generation failed:", err);
+      logger.error("Zip generation failed:", err);
       alert("Failed to create zip file");
     } finally {
       setIsZipping(false);

@@ -106,7 +106,7 @@ export default function Home() {
         />
       </div>
 
-      <div className="relative z-10 w-full flex flex-col items-center">
+      <main className="relative z-10 w-full flex flex-col items-center">
         {renderContent()}
         
         <footer className="mt-16 text-center">
@@ -114,7 +114,7 @@ export default function Home() {
             © 2025 KeyPairDrop • E2E Encrypted
           </p>
         </footer>
-      </div>
+      </main>
     </div>
   );
 }

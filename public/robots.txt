@@ -1,0 +1,13 @@
+# KeyPairDrop Robots.txt
+# 此為 P2P 檔案分享工具，允許搜尋引擎索引以增加可見性
+
+User-agent: *
+Allow: /
+
+# 禁止索引錯誤頁面
+Disallow: /404
+Disallow: /500
+
+# Sitemap (如果未來需要)
+# Sitemap: https://keypairdrop.vercel.app/sitemap.xml
+
