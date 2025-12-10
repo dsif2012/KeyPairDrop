@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { GoogleAnalytics } from '@next/third-parties/google';
-// 確保 polyfill 和 storage-safe 在應用啟動時載入
+// 確保 polyfill 在應用啟動時載入
 import "@/lib/polyfill";
-import "@/lib/storage-safe";
 
 const inter = Inter({ subsets: ["latin"] });
 

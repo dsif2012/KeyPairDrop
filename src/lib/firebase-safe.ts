@@ -5,7 +5,6 @@
 
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getDatabase, Database } from "firebase/database";
-import { storageSafe } from "./storage-safe";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -21,19 +20,17 @@ let app: FirebaseApp | null = null;
 let db: Database | null = null;
 
 try {
-  // 檢查 storage 是否可用（Firebase 可能會使用）
-  if (!storageSafe.isAvailable()) {
-    console.warn('Storage not available, Firebase may have limited functionality');
-  }
-
   // Initialize Firebase (avoid re-initialization in Next.js)
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   db = getDatabase(app);
 } catch (error: any) {
-  // 捕獲 storage 相關錯誤
+  // 捕獲 storage 相關錯誤（Firebase 可能會嘗試訪問 storage）
   if (error.message?.includes('storage') || error.message?.includes('Access to storage')) {
-    console.warn('Firebase initialization warning (storage access):', error.message);
-    // 嘗試繼續初始化（某些 Firebase 功能可能受限）
+    // 在開發環境顯示警告，生產環境靜默處理
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Firebase initialization warning (storage access):', error.message);
+    }
+    // 嘗試繼續初始化（某些 Firebase 功能可能受限，但不影響 Realtime Database）
     try {
       app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
       db = getDatabase(app);
