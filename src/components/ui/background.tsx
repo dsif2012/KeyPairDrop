@@ -369,20 +369,7 @@ const NoiseField = ({
     };
   }, [backgroundColor, particleNum, step, base, zInc, colorTheme, fadeSpeed, maxLines, spawnRate]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        cursor: 'pointer',
-        backgroundColor
-      }}
-    />
-  );
+  return <canvas ref={canvasRef} className="noise-field-canvas" />;
 };
 
 export default NoiseField;

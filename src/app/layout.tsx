@@ -6,17 +6,34 @@ import { GoogleAnalytics } from '@next/third-parties/google';
 import "@/lib/polyfill";
 
 const inter = Inter({ subsets: ["latin"] });
+const siteUrl = "https://keypairdrop.vercel.app";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "KeyPairDrop - Secure P2P File Sharing",
-  description: "Share files securely and directly between devices using WebRTC. End-to-end encrypted, no server storage.",
+  description: "KeyPairDrop lets you create short-lived pairing codes and stream folders or large files directly between devices via WebRTC, with no server storage, end-to-end encryption, and responsive UI in both English and Traditional Chinese.",
   icons: {
     icon: "/logo.png",
+  },
+  keywords: [
+    "KeyPairDrop",
+    "P2P file sharing",
+    "WebRTC",
+    "secure file transfer",
+    "end-to-end encryption",
+    "資料夾分享",
+  ],
+  alternates: {
+    canonical: siteUrl,
+    languages: {
+      "en-US": siteUrl,
+      "zh-TW": `${siteUrl}/?lang=zh-TW`,
+    },
   },
   openGraph: {
     title: "KeyPairDrop - Secure P2P File Sharing",
     description: "Share files securely and directly between devices using WebRTC. End-to-end encrypted, no server storage.",
-    url: "https://keypairdrop.vercel.app",
+    url: siteUrl,
     siteName: "KeyPairDrop",
     images: [
       {

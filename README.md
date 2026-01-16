@@ -77,6 +77,7 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 NEXT_PUBLIC_GA_MEASUREMENT_ID=your_ga_measurement_id
+NEXT_PUBLIC_ALLOWED_ORIGINS=https://keypairdrop.vercel.app
 ```
 
 > **How to get Firebase Config?**
@@ -150,6 +151,7 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 NEXT_PUBLIC_GA_MEASUREMENT_ID=your_ga_measurement_id
+NEXT_PUBLIC_ALLOWED_ORIGINS=https://keypairdrop.vercel.app
 ```
 
 > **如何取得 Firebase Config?**

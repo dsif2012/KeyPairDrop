@@ -20,7 +20,10 @@ export default function JoinPage() {
     isInitiator, 
     sendFiles: sendFile, 
     incomingFiles, 
-    transferProgress 
+    transferProgress,
+    directSaveEnabled,
+    directSaveError,
+    requestDownloadDirectory,
   } = useP2P();
 
   const handleConnect = (rid: string) => {
@@ -42,6 +45,9 @@ export default function JoinPage() {
           disconnect={handleDisconnect}
           isInitiator={isInitiator}
           roomId={roomId}
+          directSaveEnabled={directSaveEnabled}
+          directSaveError={directSaveError}
+          requestDownloadDirectory={requestDownloadDirectory}
         />
       );
     }

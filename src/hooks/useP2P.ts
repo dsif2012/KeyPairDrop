@@ -11,6 +11,24 @@ import { logger } from "@/lib/logger";
 const CHUNK_SIZE = 16 * 1024; // 16KB
 const BACKPRESSURE_THRESHOLD = CHUNK_SIZE * 5;
 
+type FileSystemWritable = {
+  write: (data: BufferSource | Blob | string) => Promise<void>;
+  close: () => Promise<void>;
+  abort: () => Promise<void>;
+};
+
+type ReceivingFileState = {
+  meta: FileMeta;
+  buffer: Uint8Array[];
+  receivedSize: number;
+  writer: FileSystemWritable | null;
+  fileHandle: FileSystemFileHandle | null;
+  useDirectSave: boolean;
+};
+
+const sanitizeFilename = (name: string) =>
+  name.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
+
 export function useP2P() {
   const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -19,21 +37,21 @@ export function useP2P() {
   
   const [incomingFiles, setIncomingFiles] = useState<ReceivedFile[]>([]);
   const [transferProgress, setTransferProgress] = useState<TransferProgress | null>(null);
+  const [directSaveEnabled, setDirectSaveEnabled] = useState(false);
+  const [directSaveError, setDirectSaveError] = useState<string | null>(null);
   
   const peerRef = useRef<PeerInstance | null>(null);
   const myCodeRef = useRef<string>("");
   const targetCodeRef = useRef<string>("");
+  const downloadDirHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
+  const receiveQueueRef = useRef<Promise<void>>(Promise.resolve());
   
   // File Queue System
   const fileQueueRef = useRef<File[]>([]);
   const isSendingRef = useRef(false);
 
   // Receiving state
-  const receivingFileRef = useRef<{
-    meta: FileMeta;
-    buffer: Uint8Array[];
-    receivedSize: number;
-  } | null>(null);
+  const receivingFileRef = useRef<ReceivingFileState | null>(null);
 
   const cleanup = useCallback(() => {
     if (peerRef.current) {
@@ -51,6 +69,10 @@ export function useP2P() {
       const targetRoomRef = ref(db, `rooms/${targetCodeRef.current}`);
       off(targetRoomRef);
     }
+    if (receivingFileRef.current?.writer) {
+      receivingFileRef.current.writer.abort().catch((err) => logger.error("Writer abort failed", err));
+    }
+    receivingFileRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -137,7 +159,12 @@ export function useP2P() {
         setStatus("connected");
       });
 
-      p.on('data', handleData);
+      p.on('data', (data) => {
+        receiveQueueRef.current = receiveQueueRef.current.then(() => handleData(data));
+        receiveQueueRef.current.catch((err) => {
+          logger.error("Receive queue error", err);
+        });
+      });
 
       p.on('error', (err) => {
         logger.error('Peer error:', err);
@@ -198,68 +225,101 @@ export function useP2P() {
     }
   };
 
-  const handleFileStart = (data: string) => {
-      try {
+  const handleFileStart = async (data: string) => {
+    try {
       const meta = JSON.parse(data) as FileMeta;
-        receivingFileRef.current = {
-          meta,
-          buffer: [],
-          receivedSize: 0
-        };
-        setTransferProgress({
-          fileName: meta.name,
-          transferred: 0,
-          total: meta.size,
-          percentage: 0,
-        queueSize: 0 // Receiver doesn't know queue size
-        });
-      } catch (e) {
-        logger.error("Meta parse error", e);
+      const state: ReceivingFileState = {
+        meta,
+        buffer: [],
+        receivedSize: 0,
+        writer: null,
+        fileHandle: null,
+        useDirectSave: false,
+      };
+
+      if (downloadDirHandleRef.current && typeof downloadDirHandleRef.current.getFileHandle === "function") {
+        try {
+          const dirHandle = downloadDirHandleRef.current;
+          const safeName = sanitizeFilename(meta.name);
+          const fileHandle = await dirHandle.getFileHandle(safeName, { create: true });
+          const writable = await fileHandle.createWritable();
+          state.writer = writable as FileSystemWritable;
+          state.fileHandle = fileHandle;
+          state.useDirectSave = true;
+        } catch (err) {
+          logger.error("Direct save init failed", err);
+        }
       }
+
+      receivingFileRef.current = state;
+      setTransferProgress({
+        fileName: meta.name,
+        transferred: 0,
+        total: meta.size,
+        percentage: 0,
+        queueSize: 0 // Receiver doesn't know queue size
+      });
+    } catch (e) {
+      logger.error("Meta parse error", e);
+    }
   };
 
-  const handleFileChunk = (data: Uint8Array) => {
+  const handleFileChunk = async (data: Uint8Array) => {
     if (!receivingFileRef.current) return;
 
-      const current = receivingFileRef.current;
-      const chunk = new Uint8Array(data);
+    const current = receivingFileRef.current;
+    const chunk = new Uint8Array(data);
+    if (current.useDirectSave && current.writer) {
+      await current.writer.write(chunk);
+    } else {
       current.buffer.push(chunk);
-      current.receivedSize += chunk.byteLength;
+    }
+    current.receivedSize += chunk.byteLength;
 
-      setTransferProgress({
-        fileName: current.meta.name,
-        transferred: current.receivedSize,
-        total: current.meta.size,
-        percentage: Math.min(100, Math.round((current.receivedSize / current.meta.size) * 100)),
-        queueSize: 0
-      });
+    setTransferProgress({
+      fileName: current.meta.name,
+      transferred: current.receivedSize,
+      total: current.meta.size,
+      percentage: Math.min(100, Math.round((current.receivedSize / current.meta.size) * 100)),
+      queueSize: 0
+    });
 
-      if (current.receivedSize >= current.meta.size) {
-      const blob = new Blob(current.buffer as unknown as BlobPart[], { type: current.meta.mime });
-        const url = URL.createObjectURL(blob);
-        
-        const newFile: ReceivedFile = {
-          id: current.meta.id,
-          name: current.meta.name,
-          path: current.meta.path,
-          size: current.meta.size,
-          type: current.meta.mime,
-          blob,
-          url
-        };
-        
-        setIncomingFiles(prev => [...prev, newFile]);
-        setTransferProgress(null);
-        receivingFileRef.current = null;
+    if (current.receivedSize >= current.meta.size) {
+      let blob: Blob;
+      let url: string;
+
+      if (current.useDirectSave && current.writer && current.fileHandle) {
+        await current.writer.close();
+        const savedFile = await current.fileHandle.getFile();
+        blob = savedFile;
+        url = URL.createObjectURL(savedFile);
+      } else {
+        blob = new Blob(current.buffer as unknown as BlobPart[], { type: current.meta.mime });
+        url = URL.createObjectURL(blob);
       }
+      
+      const newFile: ReceivedFile = {
+        id: current.meta.id,
+        name: current.meta.name,
+        path: current.meta.path,
+        size: current.meta.size,
+        type: current.meta.mime,
+        blob,
+        url
+      };
+      
+      setIncomingFiles(prev => [...prev, newFile]);
+      setTransferProgress(null);
+      receivingFileRef.current = null;
+    }
   };
 
-  const handleData = (data: any) => {
+  const handleData = async (data: any) => {
     const dataStr = data.toString();
     if (dataStr.startsWith('{') && dataStr.includes('"type":"file-start"')) {
-      handleFileStart(dataStr);
+      await handleFileStart(dataStr);
     } else if (receivingFileRef.current) {
-      handleFileChunk(data);
+      await handleFileChunk(data);
     }
   };
 
@@ -281,9 +341,8 @@ export function useP2P() {
 
     peerRef.current.send(JSON.stringify(meta));
 
-    const buffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(buffer);
-    let offset = 0;
+    const reader = file.stream().getReader();
+    let bytesSent = 0;
 
     // Initial progress
     setTransferProgress({
@@ -294,33 +353,42 @@ export function useP2P() {
       queueSize: fileQueueRef.current.length
     });
 
-    while (offset < uint8Array.length) {
-      if (!peerRef.current) break; // Connection lost
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done || !value) break;
+        if (!peerRef.current) break; // Connection lost
 
-      const end = Math.min(offset + CHUNK_SIZE, uint8Array.length);
-      const chunk = uint8Array.slice(offset, end);
-      
-      // Simple backpressure check
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (peerRef.current && (peerRef.current as any)._channel.bufferedAmount > BACKPRESSURE_THRESHOLD) {
-        await new Promise(r => setTimeout(r, 50));
-      }
+        let cursor = 0;
+        while (cursor < value.length) {
+          const slice = value.subarray(cursor, cursor + CHUNK_SIZE);
+          
+          // Simple backpressure check
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if (peerRef.current && (peerRef.current as any)._channel.bufferedAmount > BACKPRESSURE_THRESHOLD) {
+            await new Promise(r => setTimeout(r, 50));
+          }
 
-      peerRef.current.send(chunk);
-      offset = end;
-      
-      setTransferProgress({
-        fileName: file.name,
-        transferred: offset,
-        total: file.size,
-        percentage: Math.round((offset / file.size) * 100),
-        queueSize: fileQueueRef.current.length
-      });
-      
-      // Yield to event loop to keep UI responsive
-      if (offset % BACKPRESSURE_THRESHOLD === 0) {
-        await new Promise(r => setTimeout(r, 0));
+          peerRef.current.send(slice);
+          cursor += slice.length;
+          bytesSent += slice.length;
+
+          setTransferProgress({
+            fileName: file.name,
+            transferred: bytesSent,
+            total: file.size,
+            percentage: Math.min(100, Math.round((bytesSent / file.size) * 100)),
+            queueSize: fileQueueRef.current.length
+          });
+
+          // Yield to event loop to keep UI responsive
+          if (bytesSent % BACKPRESSURE_THRESHOLD === 0) {
+            await new Promise(r => setTimeout(r, 0));
+          }
+        }
       }
+    } finally {
+      reader.releaseLock();
     }
   };
 
@@ -362,6 +430,36 @@ export function useP2P() {
     incomingFiles,
     transferProgress,
     isInitiator,
+    directSaveEnabled,
+    directSaveError,
+    requestDownloadDirectory: async () => {
+      if (typeof window === 'undefined') {
+        const message = "目前瀏覽器不支援自動保存，建議使用桌面版 Chrome / Edge。";
+        setDirectSaveError(message);
+        throw new Error(message);
+      }
+      const directoryPickerWindow = window as typeof window & {
+        showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>;
+      };
+      if (typeof directoryPickerWindow.showDirectoryPicker !== 'function') {
+        const message = "目前瀏覽器不支援自動保存，建議使用桌面版 Chrome / Edge。";
+        setDirectSaveError(message);
+        throw new Error(message);
+      }
+      try {
+        const dirHandle = await directoryPickerWindow.showDirectoryPicker();
+        downloadDirHandleRef.current = dirHandle;
+        setDirectSaveEnabled(true);
+        setDirectSaveError(null);
+      } catch (err) {
+        if ((err as DOMException).name !== "AbortError") {
+          const message = "無法啟用自動保存：" + ((err as Error).message ?? "未知錯誤");
+          setDirectSaveError(message);
+          throw new Error(message);
+        }
+        throw err;
+      }
+    },
     disconnect: cleanup
   };
 }

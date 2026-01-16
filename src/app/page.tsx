@@ -16,7 +16,10 @@ export default function Home() {
     incomingFiles, 
     transferProgress,
     disconnect,
-    isInitiator
+    isInitiator,
+    directSaveEnabled,
+    directSaveError,
+    requestDownloadDirectory,
   } = useP2P();
 
   const handleConnect = (targetCode: string) => {
@@ -33,7 +36,10 @@ export default function Home() {
             transferProgress={transferProgress}
             disconnect={disconnect}
             isInitiator={isInitiator} 
-            roomId={myCode} 
+            roomId={myCode}
+            directSaveEnabled={directSaveEnabled}
+            directSaveError={directSaveError}
+            requestDownloadDirectory={requestDownloadDirectory}
           />
         </div>
       );
@@ -92,7 +98,7 @@ export default function Home() {
     <div className="min-h-[100dvh] bg-zinc-950 flex flex-col items-center justify-center p-4 md:p-8 selection:bg-cyan-500/30 relative overflow-hidden">
       
       {/* Dynamic Noise Field Background */}
-      <div style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', zIndex: 0 }} >
+      <div className="fixed inset-0 w-full h-full z-0">
         <NoiseField 
           backgroundColor={"#09090b"} 
           particleNum={600} 

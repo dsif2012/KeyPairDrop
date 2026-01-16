@@ -13,6 +13,9 @@ interface FileTransferProps {
   disconnect: () => void;
   isInitiator: boolean;
   roomId: string;
+  directSaveEnabled: boolean;
+  directSaveError: string | null;
+  requestDownloadDirectory: () => Promise<void>;
 }
 
 export function FileTransfer({
@@ -20,12 +23,17 @@ export function FileTransfer({
   incomingFiles,
   transferProgress,
   disconnect,
-  roomId
+  roomId,
+  directSaveEnabled,
+  directSaveError,
+  requestDownloadDirectory,
 }: FileTransferProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [previewFile, setPreviewFile] = useState<ReceivedFile | null>(null);
   const [isZipping, setIsZipping] = useState(false);
+  const [isSelectingDir, setIsSelectingDir] = useState(false);
+  const [selectDirError, setSelectDirError] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -48,6 +56,22 @@ export function FileTransfer({
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+  };
+
+  const handleEnableDirectSave = async () => {
+    setSelectDirError(null);
+    setIsSelectingDir(true);
+    try {
+      await requestDownloadDirectory();
+    } catch (err) {
+      if ((err as DOMException).name === "AbortError") {
+        setSelectDirError("已取消資料夾選擇");
+      } else {
+        setSelectDirError((err as Error).message || "啟用失敗");
+      }
+    } finally {
+      setIsSelectingDir(false);
+    }
   };
 
   const handleDownloadAll = async () => {
@@ -189,12 +213,14 @@ export function FileTransfer({
                   {transferProgress.percentage}%
                 </span>
               </div>
-              <div className="w-full bg-zinc-900/80 rounded-full h-1.5 overflow-hidden">
-                <div 
-                  className="bg-cyan-500 h-full rounded-full transition-all duration-300 ease-out shadow-[0_0_10px_rgba(6,182,212,0.8)]"
-                  style={{ width: `${transferProgress.percentage}%` }}
-                ></div>
-              </div>
+              <progress
+                className="progress-bar"
+                max={100}
+                value={transferProgress.percentage}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={transferProgress.percentage}
+              />
               <div className="mt-2 text-right text-xs text-zinc-500 font-mono">
                  {formatSize(transferProgress.transferred)} / {formatSize(transferProgress.total)}
               </div>
@@ -205,23 +231,45 @@ export function FileTransfer({
 
       {/* Received Files Section */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between px-2">
-          <h3 className="font-bold text-zinc-400 text-sm tracking-wider uppercase flex items-center gap-2">
-            Received Files
-            <span className="bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded text-xs font-mono">
-              {incomingFiles.length}
-            </span>
-          </h3>
-          
-          {incomingFiles.length > 1 && (
-            <button
-              onClick={handleDownloadAll}
-              disabled={isZipping}
-              className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 rounded-full transition-colors disabled:opacity-50"
-            >
-              {isZipping ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Archive className="w-3.5 h-3.5" />}
-              {isZipping ? 'Zipping...' : 'Download All (Zip)'}
-            </button>
+        <div className="flex flex-col gap-3 px-2">
+          <div className="flex items-center justify-between gap-4">
+            <h3 className="font-bold text-zinc-400 text-sm tracking-wider uppercase flex items-center gap-2">
+              Received Files
+              <span className="bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded text-xs font-mono">
+                {incomingFiles.length}
+              </span>
+            </h3>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleEnableDirectSave}
+                disabled={isSelectingDir}
+                className={cn(
+                  "text-xs font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-colors",
+                  directSaveEnabled
+                    ? "text-emerald-300 border-emerald-500/40 bg-emerald-500/10"
+                    : "text-zinc-300 border-zinc-700 hover:text-cyan-300 hover:border-cyan-500/40"
+                )}
+              >
+                {isSelectingDir ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                {directSaveEnabled ? "Direct Save Enabled" : "Enable Direct Save"}
+              </button>
+              {incomingFiles.length > 1 && (
+                <button
+                  onClick={handleDownloadAll}
+                  disabled={isZipping}
+                  className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 rounded-full transition-colors disabled:opacity-50"
+                >
+                  {isZipping ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Archive className="w-3.5 h-3.5" />}
+                  {isZipping ? 'Zipping...' : 'Download All'}
+                </button>
+              )}
+            </div>
+          </div>
+          {(directSaveError || selectDirError) && (
+            <p className="text-xs text-red-400">
+              {selectDirError || directSaveError}
+            </p>
           )}
         </div>
         
